@@ -87,6 +87,9 @@ for boat in boat_listings:
 # Convert list to DataFrame
 df = pd.DataFrame(boats_data)
 
+# Explicitly convert "Baujahr" to Int64 to remove decimals
+df["Baujahr"] = pd.to_numeric(df["Baujahr"], errors="coerce").astype("Int64")
+
 # Save DataFrame to CSV file
 df.to_csv("boats_data.csv", index=False, encoding="utf-8")
 print("✅ Data saved to boats_data.csv")
