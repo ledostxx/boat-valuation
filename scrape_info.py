@@ -1,60 +1,23 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-import pandas as pd
-import time
 import re
 from bs4 import BeautifulSoup
 import requests as requests
-
+from datetime import datetime
 import pandas as pd
 
 
-
-# Setup Selenium
-chrome_options = Options()
-chrome_options.add_argument("--headless")  # Run Chrome in headless mode
-chrome_options.add_argument("--no-sandbox")
-chrome_options.add_argument("--disable-dev-shm-usage")
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-
-
-# # URL with filter for motorboats and ascending price sortation
-# url = "https://www.boot24.ch/chde/occasionsboote/?cat=2&page=0&sort=chfasc"
-
-# driver.get(url)
-
-# # Wait for JavaScript to load
-# time.sleep(5)
-
-# # Get source HTML
-# page = driver.page_source
-# page = requests.get(url)
-
-# soup = BeautifulSoup(page.text, 'html.parser')
-# print(soup.prettify())
-
-# # Get all hyperlinks in html
-# a_objects = soup.find_all('a')
-
-# # Make a list with all links that include 'details', those are single boat listings
-# hyper_links = [item.get('href') for item in a_objects if 'detail' in item.get('href')]
-
-# for link in hyper_links:
-#     print(link)
-# #print(hyper_links)
-
-
-
 def get_listing_urls(boat_cat):
+    """
+    get_listing_urls scrapes through the marketplace of https://www.boot24.ch/chde/ for boats that are sold
+    and retrieves every url that leads to the more detailed description of each boat listing
+
+    :param boat_cat (int), defines the boat categories is scraped (1: sailboats, 2: motorboats)
+    
+    :return: list with all urls of every boat listing within category
+    """ 
     
     n_page = 0
 
     # set page url
-    #url = f'https://www.boot24.ch/chde/occasionsboote/?src=&cat={boat_cat}&whr=CHF&prs_min=&prs_max=&lge_min=&lge_max=&bre_min=&bre_max=&mah_min=&mah_max=&jhr_min=&jhr_max=&zus=&sort=chfasc'
     url = f"https://www.boot24.ch/chde/occasionsboote/?cat={boat_cat}&page={n_page}&sort=chfasc"
 
     # Get source HTML of page
@@ -132,8 +95,122 @@ def get_listing_urls(boat_cat):
     return hyper_links
 
 
-df_links_motorboat = pd.DataFrame()
-df_links_motorboat['links'] = get_listing_urls(2)
+def scrape_listings(listings):
+    """
+    scrape_listings takes a list of links for boat listings as an input and scrapes each
+    boat listing seperately for information (price, specifications, equipment)
+
+    :param listings: list that contains url's for boat listings on https://www.boot24.ch/chde/
+    
+    :return: pandas dataframe where each listing represents a row and columns represent either represent general information
+    like price, name of the boat, other specifications (prefix: spec) or of some type of equipment is available on the boat (prefix: equip)
+    """ 
+    print(f'Number of listings: {len(listings)}')
+
+    df_scraped_listings = pd.DataFrame()
+
+    # iteratively scrape single listings and put info into dataframe
+    for url in listings:
+        
+        # Request single listing
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f'Listing with url {url} not found')
+            pass
+        
+        # Extract Listing ID from url
+        print(f'Scraping: {url}')
+        match = re.search(r'/(\d+)/$', url)
+        if match:
+            id = match.group(1)
+        else:
+            id = None
+
+        # Scrape Information from Listing 
+        soup_listing = BeautifulSoup(response.text, 'html.parser')
+        #print(soup_listing.prettify())
+        specs_div = soup_listing.find('div', id='specs')
+        #print(specs_div.prettify())
+
+        # Extract Price
+        price = "N.A."
+        aside_section = soup_listing.find('aside')
+        if aside_section:
+            price_tag = aside_section.find('p', class_='contact-box__price')
+            if price_tag:
+                strong_tag = price_tag.find('strong')
+                if strong_tag:
+                    price = strong_tag.text.strip()
+
+        #print(price)
+
+        # Extract Specifications
+        specs = {}
+        specs_div = soup_listing.find('div', id='specs')
+        if specs_div:
+            for spec in specs_div.find_all('li'):
+                key_span = spec.find('span', class_='list__key')
+                value_span = spec.find('span', class_='list__value')
+                category = key_span.text.strip() if key_span else "N.A."
+                category = f'spec_{category}'
+                value = value_span.text.strip() if value_span else "N.A."
+                specs[category] = value
+
+        #print(specs)
+
+        # Extract Equipment
+        equipment = {}
+        equipment_div = soup_listing.find('div', id='equipment')
+        if equipment_div:
+            for item in equipment_div.find_all('li'):
+                equipment_name = f'equip_{item.text.strip()}'
+                if equipment_name:
+                    equipment[equipment_name] = True
+        
+        #print(equipment)
+        
+        dict_listing = {
+            'URL': url,
+            'Price': price,
+            'id' : id,
+            **specs,
+            **{key: equipment.get(key, False) for key in equipment}
+        }
+
+        #print(dict_listing)
+
+        # Make dataframe from listing
+        df_listing = pd.DataFrame.from_dict([dict_listing])
+        #print(df_listing)
+
+        # Add to big dataframe
+        df_scraped_listings = pd.concat([df_scraped_listings, df_listing])
+    
+    print(f'Number of scraped listings: {len(df_scraped_listings)}')
+
+    return df_scraped_listings
 
 
-df_links_motorboat.to_csv('listings_motorboats.csv')
+def main():
+
+    # Create Datestamp
+    date_stamp = datetime.today().strftime('%Y-%m-%d')
+
+    # Retrieve all links for Motorboats listings (cat=2)
+    list_motorboats = get_listing_urls(2)
+
+    # save to csv
+    df_links_motorboats = pd.DataFrame()
+    df_links_motorboats['links'] = get_listing_urls(2)
+    df_links_motorboats.to_csv(f'{date_stamp}_listings_motorboats.csv')
+
+    # scrape information and save to csv
+    df_motorboats_scraped = scrape_listings(list_motorboats)
+    df_motorboats_scraped.to_csv(f'{date_stamp}_scraped_listings.csv')
+
+    print(df_motorboats_scraped.head(10))
+    
+
+# run main
+if __name__ == "__main__":
+    main()

@@ -7,6 +7,7 @@ import pandas as pd
 import time
 import re
 
+
 # Setup Selenium
 chrome_options = Options()
 chrome_options.add_argument("--headless")  # Run Chrome in headless mode
@@ -91,7 +92,7 @@ df = pd.DataFrame(boats_data)
 df["Baujahr"] = pd.to_numeric(df["Baujahr"], errors="coerce").astype("Int64")
 
 # Save DataFrame to CSV file
-df.to_csv("boats_data.csv", index=False, encoding="utf-8")
+df.to_csv("boats_data_1.csv", index=False, encoding="utf-8")
 print("✅ Data saved to boats_data.csv")
 
 # Close Selenium driver
