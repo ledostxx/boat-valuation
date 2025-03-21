@@ -45,9 +45,11 @@ def get_listing_urls(boat_cat):
 
     # list to store final hyperlinks
     hyper_links = []
+    counter = 0
 
     # iteratively extract all listing hyperlinks from pages up to the max page
-    while n_page <= max_page:
+    while n_page <= max_page and counter <= 10:
+        counter += 1
 
         # set page url
         url = f"https://www.boot24.ch/chde/occasionsboote/?cat={boat_cat}&page={n_page}&sort=chfasc"
@@ -56,24 +58,24 @@ def get_listing_urls(boat_cat):
         response = requests.get(url)
 
         if response.status_code == 200:
-            
+
             print(f'Fetching: {url}')
 
             soup_main = BeautifulSoup(response.text, 'html.parser')
             #print(soup.prettify())
-            
+
             # Get all hyperlinks of first page source HMTL
             a_objects = soup_main.find_all('a')
 
             # Make a list with all links that include 'detail', those are single boat listings
             page_links = [item.get('href') for item in a_objects if 'detail' in item.get('href')]
             page_links = list(set(page_links)) # get unique values
-            
+
             # append to list of hyperlinks
             hyper_links.extend(page_links)
         else:
              print(f'404 Error for: {url}')
-        
+
 
         # Increment page, akways +20 this logic is from webpage
         n_page += 20
@@ -202,11 +204,11 @@ def main():
     # save to csv
     df_links_motorboats = pd.DataFrame()
     df_links_motorboats['links'] = get_listing_urls(2)
-    df_links_motorboats.to_csv(f'{date_stamp}_listings_motorboats.csv')
+    df_links_motorboats.to_csv(f'output/{date_stamp}_listings_motorboats.csv')
 
     # scrape information and save to csv
     df_motorboats_scraped = scrape_listings(list_motorboats)
-    df_motorboats_scraped.to_csv(f'{date_stamp}_scraped_listings.csv')
+    df_motorboats_scraped.to_csv(f'output/{date_stamp}_scraped_listings.csv')
 
     print(df_motorboats_scraped.head(10))
     
