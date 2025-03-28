@@ -13,7 +13,7 @@ class DataAcquisition:
         n_page = 0
         hyper_links = []
 
-        # Get max page using the same logic as the initial code
+        # Get max page
         initial_url = f"{self.base_url}?cat={self.boat_category}&page={n_page}&sort=chfasc"
         response = requests.get(initial_url)
         max_page = 0
@@ -98,11 +98,14 @@ class DataAcquisition:
 
             # --- Equipment Extraction ---
             equipment = {}
+            counter = 0
             equip_div = soup.find('div', id='equipment')
             if equip_div:
                 for item in equip_div.find_all('li'):
                     equip_key = f"equip_{item.text.strip()}"
                     equipment[equip_key] = True
+                    counter += 1
+
 
             # --- Combine Data ---
             listing_data = {
@@ -110,8 +113,9 @@ class DataAcquisition:
                 'URL': url,
                 'Price': price,
                 'id': listing_id,
-                **specs,
-                **equipment
+                'attributes_counter': counter,
+                **specs
+                #**equipment
             }
 
             data.append(listing_data)

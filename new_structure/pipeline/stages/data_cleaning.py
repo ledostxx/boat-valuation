@@ -12,6 +12,10 @@ class DataCleaner:
         df_cleaned = df_cleaned.rename(columns=RENAME_MAP)
         df_cleaned = df_cleaned.drop(columns=UNWANTED_COLUMNS, errors="ignore")
 
+        # drop all columns containing "MwSt." or "Zoll"
+        df_cleaned = df_cleaned.loc[:, ~df_cleaned.columns.str.contains("MwSt")]
+        df_cleaned = df_cleaned.loc[:, ~df_cleaned.columns.str.contains("Zoll")]
+
         # 2. Clean numeric fields (price, engine hours)
         if "spec_price_chf" in df_cleaned.columns:
             df_cleaned["spec_price_chf"] = (
@@ -35,7 +39,7 @@ class DataCleaner:
             df_cleaned["spec_engine_hours"] = pd.to_numeric(df_cleaned["spec_engine_hours"], errors="coerce").astype("Int64")
 
         # 3. Extract integers from columns like max_person, cabins, etc.
-        for col in ["spec_max_person", "spec_cabins", "spec_berths", "spec_bathrooms"]:
+        for col in ["spec_max_person", "spec_cabins", "spec_berths", "spec_bathrooms", "spec_toilet", "spec_shower"]:
             if col in df_cleaned.columns:
                 extract_int_column(df_cleaned, col)
 
@@ -85,6 +89,17 @@ class DataCleaner:
             df_cleaned["spec_tank_size"] = tank_fuel.apply(lambda x: x[0])
             df_cleaned["spec_fuel_type"] = tank_fuel.apply(lambda x: x[1])
 
+        # 7a. Format water and waste tank sizes
+        def extract_tank_size(val):
+            if pd.isna(val): return None
+            match = re.match(r"(\d+)\s*l", str(val).strip(), re.IGNORECASE)
+            return int(match.group(1)) if match else None
+
+        for col in ["spec_water_tank_l", "spec_waste_tank_l"]:
+            if col in df_cleaned.columns:
+                df_cleaned[col] = df_cleaned[col].apply(extract_tank_size)
+
+
         # 8. Convert boolean columns (equipment, trailer, etc.)
         boolean_cols = [col for col in df_cleaned.columns if col.startswith("equip_")] + ["spec_trailer", "spec_price_negotiable", "new"]
         for col in boolean_cols:
@@ -94,7 +109,10 @@ class DataCleaner:
         # 9. Clean year columns
         for year_col in ["spec_year_built", "spec_engine_year"]:
             if year_col in df_cleaned.columns:
-                df_cleaned[year_col] = pd.to_numeric(df_cleaned[year_col], errors="coerce").fillna(0).astype(int)
+                df_cleaned[year_col] = pd.to_numeric(df_cleaned[year_col], errors="coerce").astype("Int64")
+
+        # 10. Clean empty price columns
+        df_cleaned = df_cleaned.dropna(subset=['spec_price_chf'])
 
         return df_cleaned
 
