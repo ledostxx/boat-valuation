@@ -77,7 +77,13 @@ class DataCleaner:
         # 7. Split fuel type into tank size and fuel type
         if "spec_fuel_type" in df_cleaned.columns:
             def split_fuel_type(val):
-                if pd.isna(val): return None, None
+                if pd.isna(val):
+                    return None, None
+
+                # Remove apostrophes from numbers (e.g., 1'500 → 1500)
+                val = val.replace("'", "")
+
+                # Match optional number + 'l' and fuel type
                 match = re.match(r"(?:(\d+)\s*l)?\s*(.*)", val.strip(), re.IGNORECASE)
                 if match:
                     tank = match.group(1)
@@ -111,10 +117,90 @@ class DataCleaner:
             if year_col in df_cleaned.columns:
                 df_cleaned[year_col] = pd.to_numeric(df_cleaned[year_col], errors="coerce").astype("Int64")
 
-        # 10. Clean empty price columns
+        # # 10. Standardize lake/location names using lake_map
+        # lake_map = {
+        #     "Frankreich": "",
+        #     "Italien": "",
+        #     "Konstanz": "",
+        #     "Kriens": "",
+        #     "Lausanne": "",
+        #     "Lichtenstein": "",
+        #     "Neuboot auf Bestellung": "",
+        #     "Romanshorn": "",
+        #     "Safenwil": "",
+        #     "Schindellegi": "",
+        #     "Schweiz": "",
+        #     "Showroom W.A.R.": "",
+        #     "Adligenswil / Luzern (Showroom W.A.R.)": "",
+        #     "Solothurn": "",
+        #     "Spanien": "",
+        #     "Uznach": "",
+        #     "Genève": "Genfersee",
+        #     "3421 Lyssach": "",
+        #     "W.A.R. Bootbau & Boothandel AG, Adligenswil": "",
+        #
+        #
+        # }
+        #
+        # if "lake" in df_cleaned.columns:
+        #     df_cleaned["lake"] = df_cleaned["lake"].map(lake_map).fillna(df_cleaned["lake"])
+
+        # 10. Clean and standardize lake/location names
+        lake_map = {
+            "Genève": "Genfersee",
+            "GENEVE": "Genfersee",
+            "Zürichsee, Horgen": "Zürichsee",
+            "Pfäffikon SZ": "Zürichsee",
+            "Walenstadt": "Walensee",
+            "Weesen": "Walensee",
+            "Thun": "Thunersee",
+            "Sarnen": "Sarnersee",
+            "Stansstad": "Vierwaldstättersee",
+            "Luzern": "Vierwaldstättersee",
+            "Lago di Zurigo, Svizzera": "Zürichsee",
+            "Küssnacht am Rigi": "Vierwaldstättersee",
+            "Kreuzlingen": "Bodensee",
+            "Romanshorn": "Bodensee",
+            "Konstanz": "Bodensee",
+            "Mannenbach-Salenstein": "Bodensee",
+            "Mannenbach": "Bodensee",
+            "Lugano": "Luganersee",
+            "Locarno": "Lago Maggiore",
+            "Le Bouveret": "Genfersee",
+            "Ginevra": "Genfersee",
+            "Galgenen | Yvonand | Sempach": "Neuenburgersee",
+            "Galgenen | Yvonand | Lengnau": "Neuenburgersee",
+            "Estavayer-le-Lac": "Neuenburgersee",
+            "Ermatingen": "Bodensee",
+            "Cheyres": "Neuenburgersee",
+            "Chevroux": "Neuenburgersee",
+            "Caslano": "Luganersee",
+            "Aare (Rüti bei Büren)": "Aare"
+        }
+
+        if "lake" in df_cleaned.columns:
+            # Step 1: Apply mapping where relevant
+            df_cleaned["lake"] = df_cleaned["lake"].map(lake_map).fillna(df_cleaned["lake"])
+
+            # Step 2: Remove known non-lake locations using regex (keep only likely lakes)
+            def keep_if_lake(val):
+                if pd.isna(val):
+                    return None
+                val = val.strip()
+
+                # Keep names ending in 'see', containing 'Lago', or are special cases like 'Aare'
+                if re.search(r"(see$|Lago|Aare\b)", val, re.IGNORECASE):
+                    return val
+                return ""  # Empty string to indicate non-lake
+
+            df_cleaned["lake"] = df_cleaned["lake"].apply(keep_if_lake)
+
+        # 11. Clean empty price columns
         df_cleaned = df_cleaned.dropna(subset=['spec_price_chf'])
 
         return df_cleaned
+
+
 
     def run(self, df):
         """Entry point for the cleaning stage."""

@@ -96,6 +96,16 @@ class DataAcquisition:
                     value = value_span.text.strip() if value_span else "N.A."
                     specs[key] = value
 
+            # --- Lake/Location Extraction ---
+            lake_div = soup.find('div', id= "location")
+            if lake_div:
+                p_tags = lake_div.find_all('p', class_='text')
+                if p_tags:
+                    location_text = p_tags[0].get_text(strip=True)
+                    lake = location_text.split("»")[0].strip()
+                else:
+                    lake = None
+
             # --- Equipment Extraction ---
             equipment = {}
             counter = 0
@@ -114,8 +124,8 @@ class DataAcquisition:
                 'Price': price,
                 'id': listing_id,
                 'attributes_counter': counter,
-                **specs
-                #**equipment
+                **specs,
+                'lake': lake
             }
 
             data.append(listing_data)

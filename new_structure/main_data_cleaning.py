@@ -9,7 +9,7 @@ def main():
     date_stamp = datetime.today().strftime('%Y-%m-%d')
     # Bestehende Raw CSV einbinden
     try:
-        raw_data = pd.read_csv("outputs/2025-03-28_raw_data.csv")
+        raw_data = pd.read_csv("outputs/2025-04-04_raw_data.csv")
     except Exception as e:
         print(f"Fehler beim Laden der Datei: {e}")
         return
