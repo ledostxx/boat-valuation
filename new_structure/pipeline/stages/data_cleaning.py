@@ -175,7 +175,7 @@ class DataCleaner:
             "Cheyres": "Neuenburgersee",
             "Chevroux": "Neuenburgersee",
             "Caslano": "Luganersee",
-
+            "Aare (Rüti bei Büren)": "Aare"
         }
 
         if "lake" in df_cleaned.columns:
