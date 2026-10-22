@@ -1,0 +1,20 @@
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Secrets
+.env
+
+# Scraped data: only the cleaned dataset used by the model is versioned.
+# Re-create raw data with `python main.py` (see README).
+outputs/*
+!outputs/2025-04-07_cleaned_data.csv
+archive/legacy_pipeline/output/
