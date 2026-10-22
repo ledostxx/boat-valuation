@@ -1,25 +1,44 @@
 from datetime import datetime
 import pandas as pd
+from pipeline.stages.data_acquisition import DataAcquisition
+from pipeline.stages.data_cleaning import DataCleaner
 
-from scraper.listings import get_listing_urls
-from scraper.details import scrape_listings
-from scraper.cleaner import clean_scraped_data
 
 def main():
     date_stamp = datetime.today().strftime('%Y-%m-%d')
+    print("=== Starting pipeline ===")
 
-    list_motorboats = get_listing_urls(2)
-    df_links_motorboats = pd.DataFrame({'links': list_motorboats})
-    df_links_motorboats.index.name = "new_id"
-    df_links_motorboats.to_csv(f'output/{date_stamp}_listings_motorboats.csv')
+    # Step 1: Data Acquisition
+    print("Fetching listing URLs...")
+    acquirer = DataAcquisition(boat_category=2)
+    urls = acquirer.get_listing_urls()
 
-    df_motorboats_scraped = scrape_listings(df_links_motorboats)
-    df_motorboats_scraped.index.name = "new_id"
+    # Step 2: Export URL List
+    urls_prepare = pd.DataFrame()
+    urls_prepare["links"] = urls
+    urls_prepare.index.name = "new_id"
+    urls_prepare.to_csv(f"outputs/{date_stamp}_urls.csv", index=True)
+    print(f"Found {len(urls)} URLs")
 
-    df_motorboats_cleaned = clean_scraped_data(df_motorboats_scraped)
-    df_motorboats_cleaned.to_csv(f'output/{date_stamp}_scraped_listings.csv', encoding='utf-8')
 
-    print(df_motorboats_cleaned.head(10))
+    # Step 3: Scrape Details
+    print("Scraping listing details...")
+    raw_data = acquirer.scrape_listing_details(urls)
+    print(f"Scraped {len(raw_data)} listings")
+
+    # Step 4: Export Raw Datset
+    raw_data.to_csv(f"outputs/{date_stamp}_raw_data.csv", index=False)
+    print(f"Raw data saved to outputs/{date_stamp}_raw_data.csv")
+
+    # Step 5: Clean Data
+    print("Cleaning data...")
+    cleaner = DataCleaner()
+    cleaned_data = cleaner.run(raw_data)
+
+    # Step 6: Export Cleaned Datset
+    cleaned_data.to_csv(f"outputs/{date_stamp}_cleaned_data.csv", index=False)
+    print("=== Pipeline completed successfully ===")
+
 
 if __name__ == "__main__":
     main()
